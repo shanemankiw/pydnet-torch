@@ -107,7 +107,7 @@ class Conv2d_same_leaky(_ConvNd):
         padding = _pair(padding)
         dilation = _pair(dilation)
         self.relu = relu
-        super(Conv2d, self).__init__(
+        super(Conv2d_same_leaky, self).__init__(
             in_channels, out_channels, kernel_size, stride, padding, dilation,
             False, _pair(0), groups, bias)
 
@@ -121,7 +121,7 @@ class Conv2d_same_leaky(_ConvNd):
         if self.relu:
             out = F.leaky_relu(out, 0.2)
 
-        return relu
+        return out
 
 
 def conv2d_same_padding(input, weight, bias=None, stride=1, padding=1, dilation=1, groups=1):
@@ -138,8 +138,11 @@ def conv2d_same_padding(input, weight, bias=None, stride=1, padding=1, dilation=
     cols_odd = (padding_rows % 2 != 0)
     if rows_odd or cols_odd:
         input = pad(input, [0, int(cols_odd), 0, int(rows_odd)])
+    '''
+    print('padding_cols is {}'.format(padding_cols))
+    print('padding_rows is {}'.format(padding_rows))
+    '''
 
- 
     return F.conv2d(input, weight, bias, stride,
                   padding=(padding_rows // 2, padding_cols // 2),
                   dilation=dilation, groups=groups)

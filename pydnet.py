@@ -30,36 +30,36 @@ class pyramid_feature(nn.Module):
         features = []
         
         # SCALE 1
-        conv1a = conv1a(input)
-        conv1b = conv1b(conv1a)
+        conv1a = self.conv1a(input)
+        conv1b = self.conv1b(conv1a)
         features.append(conv1b)
 
         # SCALE 2
-        conv2a = conv2a(input)
-        conv2b = conv2b(conv2a)
+        conv2a = self.conv2a(conv1b)
+        conv2b = self.conv2b(conv2a)
         features.append(conv2b)
 
         # SCALE 3
-        conv3a = conv3a(input)
-        conv3b = conv3b(conv3a)
+        conv3a = self.conv3a(conv2b)
+        conv3b = self.conv3b(conv3a)
         features.append(conv3b)
 
         # SCALE 4
-        conv4a = conv4a(input)
-        conv4b = conv4b(conv4a)
+        conv4a = self.conv4a(conv3b)
+        conv4b = self.conv4b(conv4a)
         features.append(conv4b)
 
         # SCALE 5
-        conv5a = conv5a(input)
-        conv5b = conv5b(conv5a)
+        conv5a = self.conv5a(conv4b)
+        conv5b = self.conv5b(conv5a)
         features.append(conv5b)
 
         # SCALE 6
-        conv6a = conv6a(input)
-        conv6b = conv6b(conv6a)
+        conv6a = self.conv6a(conv5b)
+        conv6b = self.conv6b(conv6a)
         features.append(conv6b)
 
-        return features
+        return [conv1b, conv2b, conv3b, conv4b, conv5b, conv6b]
         
 class estimater(nn.Module):
     def __init__(self, in_channels):
@@ -70,10 +70,10 @@ class estimater(nn.Module):
         self.conv_disp5 = Conv2d_same_leaky(64, 32, 3)
         self.conv_disp6 = Conv2d_same_leaky(32, 8, 3,relu=False)
 
-    def forward(self):
-        disp3 = self.conv_disp3(self.disp2)
+    def forward(self, disp2):
+        disp3 = self.conv_disp3(disp2)
         disp4 = self.conv_disp4(disp3)
-        disp5 = self.conv_disp4(disp4)
+        disp5 = self.conv_disp5(disp4)
         disp6 = self.conv_disp6(disp5)
 
         return disp6
@@ -98,82 +98,84 @@ class get_disp(nn.Module):
 
 
 class pydnet(nn.Module):
-    def __init__(self):
+    def __init__(self, num_channels):
         super(pydnet, self).__init__()
-        pyramid = pyramid_feature()
+        self.pyramid = pyramid_feature()
  
         # SCALE 6
         self.conv6 = estimater(192)
-        self.disp7 = get_disp(8)
+        self.disp7_layer = get_disp(8)
 
-        upconv6 = nn.ConvTranspose2d(8,8,2,2)
+        self.upconv6 = nn.ConvTranspose2d(8,8,2,2)
 
         # SCALE 5
         self.conv5 = estimater(128 + 8)
-        self.disp6 = get_disp(8)
+        self.disp6_layer = get_disp(8)
 
-        upconv5 = nn.ConvTranspose2d(8,8,2,2)
+        self.upconv5 = nn.ConvTranspose2d(8,8,2,2)
 
         # SCALE 4
         self.conv4 = estimater(96 + 8)
-        self.disp5 = get_disp(8)
+        self.disp5_layer = get_disp(8)
 
-        upconv4 = nn.ConvTranspose2d(8,8,2,2)
+        self.upconv4 = nn.ConvTranspose2d(8,8,2,2)
 
         # SCALE 3
         self.conv3 = estimater(64 + 8)
-        self.disp4 = get_disp(8)
+        self.disp4_layer = get_disp(8)
 
-        upconv3 = nn.ConvTranspose2d(8,8,2,2)
+        self.upconv3 = nn.ConvTranspose2d(8,8,2,2)
 
         # SCALE 2
         self.conv2 = estimater(32 + 8)
-        self.disp3 = get_disp(8)
+        self.disp3_layer = get_disp(8)
 
-        upconv2 = nn.ConvTranspose2d(8,8,2,2)
+        self.upconv2 = nn.ConvTranspose2d(8,8,2,2)
 
         # SCALE 1
         self.conv1 = estimater(16 + 8)
-        self.disp2 = get_disp(8)
+        self.disp2_layer = get_disp(8)
 
-        upconv1 = nn.ConvTranspose2d(8,8,2,2)
+        self.upconv1 = nn.ConvTranspose2d(8,8,2,2)
 
     def forward(self, x):
         pyramid = self.pyramid(x)
 
         # SCALE 6
-        conv6 = self.conv6(pyramid[6])
-        disp7 = self.disp7(conv6)
+        
+        conv6 = self.conv6(pyramid[5])
+        
+        disp7 = self.disp7_layer(conv6)
         upconv6 = self.upconv6(conv6)
 
         # SCALE 5
-        map5 = torch.cat([pyramid[5],upconv6],1)
+        map5 = torch.cat([pyramid[4],upconv6],1)
         conv5 = self.conv5(map5)
-        disp6 = self.disp6(conv5)
+        disp6 = self.disp6_layer(conv5)
         upconv5 = self.upconv5(conv5)
 
         # SCALE 4
-        map4 = torch.cat([pyramid[4],upconv5],1)
+        map4 = torch.cat([pyramid[3],upconv5],1)
         conv4 = self.conv4(map4)
-        disp5 = self.disp5(conv4)
+        disp5 = self.disp5_layer(conv4)
         upconv4 = self.upconv4(conv4)
 
         # SCALE 3
-        map3 = torch.cat([pyramid[3],upconv4],1)
+        map3 = torch.cat([pyramid[2],upconv4],1)
         conv3 = self.conv3(map3)
-        disp4 = self.disp4(conv4)
+        disp4 = self.disp4_layer(conv3)
         upconv3 = self.upconv6(conv3)
 
         # SCALE 2
-        map2 = torch.cat([pyramid[2],upconv3],1)
+        map2 = torch.cat([pyramid[1],upconv3],1)
         conv2 = self.conv2(map2)
-        disp3 = self.disp3(conv3)
+        disp3 = self.disp3_layer(conv2)
         upconv2 = self.upconv6(conv2)
 
         # SCALE 1
-        map1 = torch.cat([pyramid[1],upconv2],1)
+        map1 = torch.cat([pyramid[0],upconv2],1)
         conv1 = self.conv1(map1)
-        disp2 = self.disp2(conv2)
+        disp2 = self.disp2_layer(conv1)
         upconv1 = self.upconv6(conv1)
 
-        
+        return disp2, disp3, disp4, disp5, disp6, disp7

@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader, ConcatDataset
 
 
 from models_resnet import Resnet18_md, Resnet50_md, ResnetModel
+from pydnet import pydnet
 from data_loader import KittiLoader
 from transforms import image_transforms
 
@@ -18,7 +19,7 @@ def to_device(input, device):
     elif isinstance(input, collections.Sequence):
         return [to_device(sample, device=device) for sample in input]
     else:
-        raise TypeError(f"Input must contain tensor, dict or list, found {type(input)}")
+        raise TypeError('Input must contain tensor, dict or list, found {}'.format(type(input)))
 
 
 def get_model(model, input_channels=3, pretrained=False):
@@ -26,6 +27,8 @@ def get_model(model, input_channels=3, pretrained=False):
         out_model = Resnet50_md(input_channels)
     elif model == 'resnet18_md':
         out_model = Resnet18_md(input_channels)
+    elif model == 'pydnet':
+        out_model = pydnet(input_channels)
     else:
         out_model = ResnetModel(input_channels, encoder=model, pretrained=pretrained)
     return out_model

@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 
 class MonodepthLoss(nn.modules.Module):
-    def __init__(self, n=4, SSIM_w=0.85, disp_gradient_w=1.0, lr_w=1.0):
+    def __init__(self, n=6, SSIM_w=0.85, disp_gradient_w=1.0, lr_w=1.0):
         super(MonodepthLoss, self).__init__()
         self.SSIM_w = SSIM_w
         self.disp_gradient_w = disp_gradient_w
@@ -12,15 +12,19 @@ class MonodepthLoss(nn.modules.Module):
         self.n = n
 
     def scale_pyramid(self, img, num_scales):
-        scaled_imgs = [img]
+        scaled_imgs = []
         s = img.size()
         h = s[2]
         w = s[3]
-        for i in range(num_scales - 1):
+        for i in range(num_scales):
+            '''
+            here is a change
+            '''
             ratio = 2 ** (i + 1)
             nh = h // ratio
             nw = w // ratio
-            scaled_imgs.append(nn.functional.interpolate(img,
+            
+            scaled_imgs.append(nn.functional.upsample(img,
                                size=[nh, nw], mode='bilinear',
                                align_corners=True))
         return scaled_imgs
@@ -48,6 +52,7 @@ class MonodepthLoss(nn.modules.Module):
 
         # Apply shift in X direction
         x_shifts = disp[:, 0, :, :]  # Disparity is passed in NCHW format with 1 channel
+
         flow_field = torch.stack((x_base + x_shifts, y_base), dim=3)
         # In grid_sample coordinates are assumed to be between -1 and 1
         output = F.grid_sample(img, 2*flow_field - 1, mode='bilinear',
@@ -113,16 +118,19 @@ class MonodepthLoss(nn.modules.Module):
         left, right = target
         left_pyramid = self.scale_pyramid(left, self.n)
         right_pyramid = self.scale_pyramid(right, self.n)
-
+        
         # Prepare disparities
         disp_left_est = [d[:, 0, :, :].unsqueeze(1) for d in input]
         disp_right_est = [d[:, 1, :, :].unsqueeze(1) for d in input]
-
+ 
         self.disp_left_est = disp_left_est
         self.disp_right_est = disp_right_est
+    
         # Generate images
+
         left_est = [self.generate_image_left(right_pyramid[i],
-                    disp_left_est[i]) for i in range(self.n)]
+                    disp_left_est[i]) for i in range(self.n)] # bug spot
+
         right_est = [self.generate_image_right(left_pyramid[i],
                      disp_right_est[i]) for i in range(self.n)]
         self.left_est = left_est
